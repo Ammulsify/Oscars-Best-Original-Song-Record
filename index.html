@@ -40,7 +40,6 @@
   #tooltip .t-badge { display: inline-block; margin-top: 6px; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; padding: 2px 8px; border-radius: 3px; }
   #tooltip .badge-winner { background: #FED76622; color: #FED766; }
   #tooltip .badge-nominee { background: #33333322; color: #555; border: 1px solid #333; }
-
   @media (max-width: 768px) {
     #header { top: 16px; left: 16px; }
     #header .eyebrow { font-size: 9px; letter-spacing: 2px; }
@@ -65,13 +64,13 @@
   <h1>The complete record of Best Original Song</h1>
   <div class="sub">511 songs across 92 years</div>
 </div>
-<div id="hint">Hover dots for details</div>
+<div id="hint">Tap or hover dots for details</div>
 <button id="replay">↺ Replay</button>
 <div id="legend">
   <div class="legend-row"><div class="dot-gold"></div><span>Winner</span></div>
   <div class="legend-row"><div class="dot-grey"></div><span>Nominee</span></div>
 </div>
-<div id="footer">Source: Academy of Motion Picture Arts and Sciences & Wikidata· @nirukti</div>
+<div id="footer">Source: Academy of Motion Picture Arts and Sciences & Wikidata · @nirukti</div>
 <div id="tooltip"></div>
 <canvas id="canvas"></canvas>
 
@@ -283,17 +282,37 @@ document.getElementById('replay').addEventListener('click', function() {
 var tooltip = document.getElementById('tooltip');
 var currentHitEntry = null;
 
-function onMouseMove(event) {
-  var hitEntry = null;
-  var minDist = 16;
+function showTooltip(s, clientX, clientY) {
+  var isWinner = s.winner === 1;
+  var badge = isWinner
+    ? '<span class="t-badge badge-winner">🏆 Winner</span>'
+    : '<span class="t-badge badge-nominee">Nominee</span>';
+  tooltip.innerHTML =
+    '<div class="t-year">' + s.year + '</div>' +
+    '<div class="t-song">' + (s.song || '—') + '</div>' +
+    '<div class="t-film">' + (s.film || '—') + '</div>' +
+    '<div class="t-people">' + (s.nominees || '—') + '</div>' +
+    badge;
+  tooltip.style.display = 'block';
+  tooltip.style.left = (clientX + 18) + 'px';
+  tooltip.style.top  = (clientY - 10) + 'px';
+}
 
+function findHit(point) {
+  var hitEntry = null;
+  var minDist = isMobile ? 22 : 16;
   for (var i = 0; i < allDots.length; i++) {
     var d = allDots[i];
     if (d.glowOnly) continue;
     if (d.circle.opacity === 0) continue;
-    var dist = event.point.getDistance(d.circle.position);
+    var dist = point.getDistance(d.circle.position);
     if (dist < minDist) { hitEntry = d; minDist = dist; }
   }
+  return hitEntry;
+}
+
+function handleInteraction(point, clientX, clientY) {
+  var hitEntry = findHit(point);
 
   if (currentHitEntry && currentHitEntry !== hitEntry && currentHitEntry.isNominee) {
     var old = currentHitEntry.circle;
@@ -329,24 +348,28 @@ function onMouseMove(event) {
   }
 
   if (hitEntry) {
-    var s = hitEntry.circle.data;
-    var isWinner = s.winner === 1;
-    var badge = isWinner
-      ? '<span class="t-badge badge-winner">🏆 Winner</span>'
-      : '<span class="t-badge badge-nominee">Nominee</span>';
-    tooltip.innerHTML =
-      '<div class="t-year">' + s.year + '</div>' +
-      '<div class="t-song">' + (s.song || '—') + '</div>' +
-      '<div class="t-film">' + (s.film || '—') + '</div>' +
-      '<div class="t-people">' + (s.nominees || '—') + '</div>' +
-      badge;
-    tooltip.style.display = 'block';
-    tooltip.style.left = (event.event.clientX + 18) + 'px';
-    tooltip.style.top  = (event.event.clientY - 10) + 'px';
+    showTooltip(hitEntry.circle.data, clientX, clientY);
   } else {
     tooltip.style.display = 'none';
   }
 }
+
+function onMouseMove(event) {
+  handleInteraction(event.point, event.event.clientX, event.event.clientY);
+}
+
+// Touch support
+view.element.addEventListener('touchstart', function(e) {
+  e.preventDefault();
+  var touch = e.touches[0];
+  var rect = view.element.getBoundingClientRect();
+  var point = new paper.Point(touch.clientX - rect.left, touch.clientY - rect.top);
+  handleInteraction(point, touch.clientX, touch.clientY);
+}, { passive: false });
+
+view.element.addEventListener('touchend', function(e) {
+  setTimeout(function() { tooltip.style.display = 'none'; }, 2000);
+}, { passive: false });
 
 </script>
 </body>
